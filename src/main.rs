@@ -64,13 +64,16 @@ fn main() -> Result<()> {
 
     let progress = MultiProgress::new();
     let read_progress_bar = ProgressBar::new_spinner().with_style(
-        ProgressStyle::with_template("[{elapsed_precise}] {pos:>9} Reading file").unwrap(),
+        ProgressStyle::with_template("[{elapsed_precise}] {human_pos:>12} lines .. Reading file")
+            .unwrap(),
     );
     let parse_progress_bar = ProgressBar::new_spinner().with_style(
-        ProgressStyle::with_template("[{elapsed_precise}] {pos:>9} Parsing {msg}").unwrap(),
+        ProgressStyle::with_template("[{elapsed_precise}] {human_pos:>12} rows  .. Parsing {msg}")
+            .unwrap(),
     );
     let write_progress_bar = ProgressBar::new_spinner().with_style(
-        ProgressStyle::with_template("[{elapsed_precise}] {pos:>9} Writing {msg}").unwrap(),
+        ProgressStyle::with_template("[{elapsed_precise}] {human_pos:>12} rows  .. Writing {msg}")
+            .unwrap(),
     );
     progress.add(read_progress_bar.clone());
     progress.add(parse_progress_bar.clone());
