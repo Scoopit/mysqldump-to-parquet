@@ -65,7 +65,7 @@ fn main() -> Result<()> {
     let progress = MultiProgress::new();
     let read_progress_bar = ProgressBar::new_spinner().with_style(
         ProgressStyle::with_template(
-            "[{elapsed_precise}] {human_pos:>12} lines  {spinner}  Reading file",
+            "[{elapsed_precise}] {human_pos:>12} lines  {spinner}  Reading file... {msg}",
         )
         .unwrap(),
     );
@@ -137,7 +137,7 @@ fn main() -> Result<()> {
     }
     // nothing to send anymore, drop the sender so the parser thread will end.
     drop(line_parser_sender);
-    read_progress_bar.set_message("Done reading file!");
+    read_progress_bar.set_message("done!");
     read_progress_bar.finish();
     line_parser_handle.join().unwrap();
     write_thread_join_handle.join().unwrap();
