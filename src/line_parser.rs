@@ -1,5 +1,5 @@
 use arrow::datatypes::{DataType, Field, SchemaBuilder, TimeUnit};
-use color_eyre::eyre::{anyhow, bail, Context, OptionExt, Result};
+use color_eyre::eyre::{bail, Context, OptionExt, Result};
 use sqlparser::{
     ast::{Expr, SetExpr, UnaryOperator, Value},
     dialect::MySqlDialect,
