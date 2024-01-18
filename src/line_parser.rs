@@ -26,7 +26,7 @@ impl Schema {
         for (column_name, column_type) in &self.0 {
             // TODO propagate the "NOT NULL" here!
             builder.push(Field::new(
-                column_name.clone(),
+                column_name.to_lowercase().clone(),
                 match column_type {
                     ColumnType::String => DataType::Utf8,
                     ColumnType::Integer => DataType::Int64,
