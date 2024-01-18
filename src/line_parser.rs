@@ -107,14 +107,14 @@ pub fn parse_line(line: &str) -> Result<Line> {
                     let mut schema = Vec::new();
                     for column in columns {
                         let column_name = column.name.value.clone();
-                        let column_type = match column.data_type {
+                        let column_type = match &column.data_type {
                             sqlparser::ast::DataType::Varchar(_) => ColumnType::String,
                             sqlparser::ast::DataType::Numeric(_) => ColumnType::Integer,
                             sqlparser::ast::DataType::Decimal(_) => ColumnType::Integer,
                             sqlparser::ast::DataType::BigNumeric(_) => ColumnType::Integer,
                             sqlparser::ast::DataType::BigDecimal(_) => ColumnType::Integer,
                             sqlparser::ast::DataType::Dec(_) => ColumnType::Integer,
-                            sqlparser::ast::DataType::Float(_) => todo!(),
+                            sqlparser::ast::DataType::Float(_) => ColumnType::Float,
                             // should we treat tinyint(1) as boolean?
                             sqlparser::ast::DataType::TinyInt(_) => ColumnType::Integer,
                             sqlparser::ast::DataType::UnsignedTinyInt(_) => ColumnType::Integer,
@@ -150,6 +150,14 @@ pub fn parse_line(line: &str) -> Result<Line> {
                             sqlparser::ast::DataType::Text => ColumnType::String,
                             sqlparser::ast::DataType::String(_) => ColumnType::String,
                             sqlparser::ast::DataType::Enum(_) => ColumnType::String,
+                            sqlparser::ast::DataType::Custom(name, _) => {
+                                let type_name = name.0[0].value.as_str();
+                                match type_name {
+                                    "longtext" => ColumnType::String,
+                                    "mediumtext" => ColumnType::String,
+                                    _ => bail!("Unsupported data type {:?}", column.data_type),
+                                }
+                            }
                             _ => bail!("Unsupported data type {:?}", column.data_type),
                         };
                         schema.push((column_name, column_type));
