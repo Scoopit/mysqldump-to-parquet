@@ -15,6 +15,13 @@ use crate::parquet_writer::ParquetWriter;
 mod line_parser;
 mod parquet_writer;
 
+#[cfg(not(target_env = "msvc"))]
+use jemallocator::Jemalloc;
+
+#[cfg(not(target_env = "msvc"))]
+#[global_allocator]
+static GLOBAL: Jemalloc = Jemalloc;
+
 /// Parse MYSQL dump and write tables to parquet files
 #[derive(Parser)]
 struct Opts {
