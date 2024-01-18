@@ -1,7 +1,7 @@
 use arrow::datatypes::{DataType, Field, SchemaBuilder, TimeUnit};
-use color_eyre::eyre::{bail, Context, OptionExt, Result};
+use color_eyre::eyre::{anyhow, bail, Context, OptionExt, Result};
 use sqlparser::{
-    ast::{Expr, SetExpr},
+    ast::{Expr, SetExpr, UnaryOperator, Value},
     dialect::MySqlDialect,
     parser::Parser,
 };
@@ -193,27 +193,42 @@ pub fn parse_line(line: &str) -> Result<Line> {
                         for values in &values.rows {
                             let mut row_values = Vec::new();
                             for value in values {
-                                if let Expr::Value(value) = value {
-                                    let value = match value {
-                                        sqlparser::ast::Value::Number(num, _) => {
-                                            if num.contains('.') {
-                                                ColumnValue::Float(num.parse()?)
-                                            } else {
-                                                ColumnValue::Integer(num.parse()?)
+                                match value {
+                                    Expr::UnaryOp { op, expr } if *op == UnaryOperator::Minus => {
+                                        // case of negative numbers...
+                                        let Expr::Value(Value::Number(num, _)) = expr.as_ref()
+                                        else {
+                                            bail!("Unknown expr with a minus operator {expr}")
+                                        };
+                                        if num.contains('.') {
+                                            row_values.push(ColumnValue::Float(-num.parse()?));
+                                        } else {
+                                            row_values.push(ColumnValue::Integer(-num.parse()?));
+                                        }
+                                    }
+                                    Expr::Value(value) => {
+                                        let value = match value {
+                                            sqlparser::ast::Value::Number(num, _) => {
+                                                if num.contains('.') {
+                                                    ColumnValue::Float(num.parse()?)
+                                                } else {
+                                                    ColumnValue::Integer(num.parse()?)
+                                                }
                                             }
-                                        }
-                                        sqlparser::ast::Value::SingleQuotedString(s) => {
-                                            ColumnValue::String(s.clone())
-                                        }
-                                        sqlparser::ast::Value::Boolean(b) => {
-                                            ColumnValue::Boolean(*b)
-                                        }
-                                        sqlparser::ast::Value::Null => ColumnValue::Null,
-                                        _ => bail!("Unsupported syntax for value {value:?}"),
-                                    };
-                                    row_values.push(value);
-                                } else {
-                                    bail!("Unsupported value {value:?}");
+                                            sqlparser::ast::Value::SingleQuotedString(s) => {
+                                                ColumnValue::String(s.clone())
+                                            }
+                                            sqlparser::ast::Value::Boolean(b) => {
+                                                ColumnValue::Boolean(*b)
+                                            }
+                                            sqlparser::ast::Value::Null => ColumnValue::Null,
+                                            _ => bail!("Unsupported syntax for value {value:?}"),
+                                        };
+                                        row_values.push(value);
+                                    }
+                                    _ => {
+                                        bail!("Unsupported value {value:?}");
+                                    }
                                 }
                             }
                             rows.push(row_values);
@@ -238,7 +253,7 @@ mod test {
     use super::{parse_line, Line};
     #[test]
     fn parse_insert_into() {
-        let stmt="INSERT INTO `user` VALUES (1, 'foobar', NULL, '2012-01-02 12:55:22', 0),(1, 'foobar', NULL, '2012-01-02 12:55:22', 0),(1, 'foobar', NULL, '2012-01-02 12:55:22', 0),(1, 'foobar', NULL, '2012-01-02 12:55:22', 0);";
+        let stmt="INSERT INTO `user` VALUES (1, 'foobar', NULL, '2012-01-02 12:55:22', 0),(1, 'foobar', NULL, '2012-01-02 12:55:22', 0),(1, 'foobar', NULL, '2012-01-02 12:55:22', 0),(1, 'foobar', NULL, '2012-01-02 12:55:22', -123);";
         let line = parse_line(stmt).unwrap();
         if let Line::InsertInto(table_name, columns_values) = line {
             assert_eq!("user", table_name);
@@ -271,7 +286,7 @@ mod test {
                         ColumnValue::String("foobar".into()),
                         ColumnValue::Null,
                         ColumnValue::String("2012-01-02 12:55:22".into()),
-                        ColumnValue::Integer(0)
+                        ColumnValue::Integer(-123)
                     ]
                 ]
             );
