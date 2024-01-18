@@ -13,7 +13,7 @@ use arrow::{
     ipc::{TimestampBuilder, Utf8Builder},
     record_batch::RecordBatch,
 };
-use chrono::{DateTime, Local, NaiveDateTime, TimeZone};
+use chrono::{DateTime, Local, NaiveDateTime, TimeZone, Utc};
 use crossbeam::channel::Receiver;
 use parquet::{
     arrow::ArrowWriter,
@@ -165,7 +165,7 @@ impl CurrentParquetWriter {
                                 let datetime = NaiveDateTime::parse_from_str(&value, "%Y-%m-%d %H:%M:%S")
                             .expect("Unable to parse date");
 
-                        let local_tz_datetime = match datetime.and_local_timezone(Local){
+                        let local_tz_datetime = match datetime.and_local_timezone(Utc){
                             chrono::LocalResult::None => panic!("{datetime} cannot be converted in local timezone"),
                             chrono::LocalResult::Single(dt) => dt,
                             // ignore ambigous (not sure how this is handled by mysql)
