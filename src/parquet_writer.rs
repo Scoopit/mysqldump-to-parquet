@@ -39,18 +39,12 @@ pub struct CurrentParquetWriter {
     arrow_writer: ArrowWriter<File>,
 }
 
-impl Drop for CurrentParquetWriter {
+impl Drop for ParquetWriter {
     fn drop(&mut self) {
-        let duration = Instant::now().duration_since(self.started);
-        println!(
-            "`{}` table written with {} rows in {} secs",
-            self.table_name,
-            self.row_count,
-            duration.as_secs()
-        );
-        // TODO should we close the ArrowWriter?? given the shitty semantic of ArrowWriter::close(self)
-        // this will be hacky!
-        self.arrow_writer.flush();
+        let current_writer = self.current_writer.take();
+        if let Some(current_writer) = current_writer {
+            current_writer.finish();
+        }
     }
 }
 
@@ -81,7 +75,7 @@ impl ParquetWriter {
                 let file = File::create(file_name).unwrap();
                 let arrow_writer =
                     ArrowWriter::try_new(file, arrow_schema.clone(), Some(props)).unwrap();
-                self.current_writer = Some(CurrentParquetWriter {
+                let previous_writer = self.current_writer.replace(CurrentParquetWriter {
                     row_count: 0,
                     table_name: table_name,
                     started: Instant::now(),
@@ -89,6 +83,9 @@ impl ParquetWriter {
                     arrow_writer,
                     schema,
                 });
+                if let Some(preview_writer) = previous_writer {
+                    preview_writer.finish();
+                }
             }
             Line::InsertInto(table_name, rows) => {
                 if Some(&table_name) != self.current_writer.as_ref().map(|w| &w.table_name) {
@@ -195,5 +192,16 @@ impl CurrentParquetWriter {
             .collect();
         let record_batch = RecordBatch::try_new(self.arrow_schema.clone(), array_refs).unwrap();
         self.arrow_writer.write(&record_batch).unwrap();
+    }
+
+    fn finish(self) {
+        let duration = Instant::now().duration_since(self.started);
+        println!(
+            "`{}` table written with {} rows in {} secs",
+            self.table_name,
+            self.row_count,
+            duration.as_secs()
+        );
+        self.arrow_writer.close();
     }
 }
