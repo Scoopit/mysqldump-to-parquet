@@ -56,7 +56,18 @@ fn main() -> Result<()> {
     let mut line_number = 0;
     let mut current_statement = String::with_capacity(8192);
     let mut line = String::with_capacity(8192);
-    let (sender, write_thread_join_handle) = ParquetWriter::start();
+
+    let (writer_sender, write_thread_join_handle) = ParquetWriter::start();
+    let (line_parser_sender, line_parser_receiver) = crossbeam::channel::bounded::<String>(1000);
+
+    let line_parser_handle = std::thread::spawn(move || {
+        while let Ok(line) = line_parser_receiver.recv() {
+            writer_sender
+                .send(line_parser::parse_line(&line).unwrap())
+                .unwrap();
+        }
+    });
+
     loop {
         line_number += 1;
         line.clear();
@@ -83,12 +94,14 @@ fn main() -> Result<()> {
         }
 
         if current_statement.ends_with(";") {
-            sender.send(line_parser::parse_line(current_statement.trim())?)?;
+            line_parser_sender.send(current_statement.trim().to_string())?;
             current_statement.clear();
         }
     }
     println!("{line_number} lines read.");
-    drop(sender);
+    // nothing to send anymore, drop the sender so the parser thread will end.
+    drop(line_parser_sender);
+    line_parser_handle.join().unwrap();
     write_thread_join_handle.join().unwrap();
 
     Ok(())
