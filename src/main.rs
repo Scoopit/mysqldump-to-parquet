@@ -10,6 +10,7 @@ use std::{
 use clap::Parser;
 use color_eyre::eyre::{Context, Result};
 use flate2::read::GzDecoder;
+use indicatif::{MultiProgress, ProgressBar, ProgressStyle};
 
 use crate::parquet_writer::ParquetWriter;
 
@@ -57,17 +58,37 @@ fn main() -> Result<()> {
     let mut current_statement = String::with_capacity(8192);
     let mut line = String::with_capacity(8192);
 
-    let (writer_sender, write_thread_join_handle) = ParquetWriter::start();
+    let progress = MultiProgress::new();
+    let read_progress_bar = ProgressBar::new_spinner().with_style(
+        ProgressStyle::with_template("[{elapsed_precise}] {pos:>7} Reading file").unwrap(),
+    );
+    let parse_progress_bar = ProgressBar::new_spinner().with_style(
+        ProgressStyle::with_template("[{elapsed_precise}] {pos:>7} Parsing {msg}").unwrap(),
+    );
+    let write_progress_bar = ProgressBar::new_spinner().with_style(
+        ProgressStyle::with_template("[{elapsed_precise}] {pos:>7} Writing {msg}").unwrap(),
+    );
+    progress.add(read_progress_bar.clone());
+    progress.add(parse_progress_bar.clone());
+    progress.add(write_progress_bar.clone());
+
+    let (writer_sender, write_thread_join_handle) = ParquetWriter::start(write_progress_bar);
     let (line_parser_sender, line_parser_receiver) = crossbeam::channel::bounded::<String>(1000);
 
     let line_parser_handle = std::thread::spawn(move || {
         while let Ok(line) = line_parser_receiver.recv() {
-            writer_sender
-                .send(line_parser::parse_line(&line).unwrap())
-                .unwrap();
+            let line = line_parser::parse_line(&line).unwrap();
+            match &line {
+                line_parser::Line::InsertInto(_, rows) => parse_progress_bar.inc(rows.len() as u64),
+                line_parser::Line::CreateTable(table_name, _) => {
+                    parse_progress_bar.set_message(format!("`{table_name}`"))
+                }
+                _ => parse_progress_bar.tick(),
+            }
+            writer_sender.send(line).unwrap();
         }
+        parse_progress_bar.finish();
     });
-
     loop {
         line_number += 1;
         line.clear();
@@ -78,6 +99,7 @@ fn main() -> Result<()> {
         {
             break;
         };
+        read_progress_bar.inc(1);
         let line = line.trim();
         if line.starts_with("--")
             || line.starts_with("/*") && line.ends_with("*/;")
@@ -98,11 +120,13 @@ fn main() -> Result<()> {
             current_statement.clear();
         }
     }
-    println!("{line_number} lines read.");
     // nothing to send anymore, drop the sender so the parser thread will end.
+    read_progress_bar.finish();
     drop(line_parser_sender);
     line_parser_handle.join().unwrap();
     write_thread_join_handle.join().unwrap();
+
+    progress.clear();
 
     Ok(())
 }

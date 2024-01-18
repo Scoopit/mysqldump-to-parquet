@@ -15,6 +15,7 @@ use arrow::{
 };
 use chrono::{DateTime, Local, NaiveDateTime, TimeZone, Utc};
 use crossbeam::channel::Receiver;
+use indicatif::ProgressBar;
 use parquet::{
     arrow::ArrowWriter,
     basic::Compression,
@@ -24,10 +25,9 @@ use parquet::{
 
 use crate::line_parser::{ColumnValue, Line, Schema};
 
-#[derive(Default)]
 pub struct ParquetWriter {
-    table_count: usize,
     current_writer: Option<CurrentParquetWriter>,
+    progress_bar: ProgressBar,
 }
 
 pub struct CurrentParquetWriter {
@@ -45,15 +45,19 @@ impl Drop for ParquetWriter {
         if let Some(current_writer) = current_writer {
             current_writer.finish();
         }
+        self.progress_bar.finish();
     }
 }
 
 impl ParquetWriter {
-    pub fn start() -> (crossbeam::channel::Sender<Line>, JoinHandle<()>) {
+    pub fn start(progress_bar: ProgressBar) -> (crossbeam::channel::Sender<Line>, JoinHandle<()>) {
         let (sender, receiver) = crossbeam::channel::bounded(100);
 
         let writer_thread_join_handle = thread::spawn(move || {
-            let mut w = ParquetWriter::default();
+            let mut w = ParquetWriter{
+                progress_bar,
+                current_writer: None,
+            };
             while let Ok(line) = receiver.recv() {
                 w.new_line(line);
             }
@@ -64,7 +68,7 @@ impl ParquetWriter {
     fn new_line(&mut self, line: Line) {
         match line {
             Line::CreateTable(table_name, schema) => {
-                println!("New table: {table_name}");
+                self.progress_bar.set_message(format!("`{table_name}`"));
                 // build Arrow schema
                 let arrow_schema = SchemaRef::from(schema.to_arrow_schema());
                 // build ArrowWriter
@@ -93,8 +97,12 @@ impl ParquetWriter {
                 } else {
                     // INSERT DATA, by construction there is a current writer ;)
                     let mut current_writer = self.current_writer.as_mut().unwrap();
-                    current_writer.row_count += rows.len();
+                    let row_count = rows.len();
+                    
                     current_writer.write_rows(rows);
+                    self.progress_bar.inc(row_count as u64);
+                    current_writer.row_count +=row_count;
+
                 }
             }
             Line::NOP => {}
@@ -201,13 +209,6 @@ impl CurrentParquetWriter {
     }
 
     fn finish(self) {
-        let duration = Instant::now().duration_since(self.started);
-        println!(
-            "`{}` table written with {} rows in {} secs",
-            self.table_name,
-            self.row_count,
-            duration.as_secs()
-        );
         self.arrow_writer.close();
     }
 }
