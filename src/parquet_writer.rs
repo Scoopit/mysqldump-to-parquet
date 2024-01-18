@@ -13,7 +13,7 @@ use arrow::{
     ipc::{TimestampBuilder, Utf8Builder},
     record_batch::RecordBatch,
 };
-use chrono::{DateTime, Local, NaiveDateTime, TimeZone, Utc};
+use chrono::{DateTime, Local, NaiveDateTime, TimeZone, Utc, NaiveDate, NaiveTime};
 use crossbeam::channel::Receiver;
 use indicatif::ProgressBar;
 use parquet::{
@@ -114,6 +114,7 @@ impl ParquetWriter {
     }
 }
 
+
 impl CurrentParquetWriter {
     fn array_builders(&self, capacity: usize) -> Vec<Box<dyn ArrayBuilder>> {
         self.arrow_schema
@@ -174,8 +175,19 @@ impl CurrentParquetWriter {
                             .unwrap();
                         match column_value{
                             ColumnValue::String(value) =>{
-                                let datetime = NaiveDateTime::parse_from_str(&value, "%Y-%m-%d %H:%M:%S")
-                            .expect("Unable to parse date");
+                                
+                        // Brute force parse date YYYY-mm-DD hh:mm:ss
+                        //                        0123456789
+                        let year = value[0..4].parse().unwrap();
+                        let month = value[5..7].parse().unwrap();
+                        let day = value[8..10].parse().unwrap();
+
+                        let hour = value[11..13].parse().unwrap();
+                        let min = value[14..16].parse().unwrap();
+                        let sec = value[17..19].parse().unwrap();
+                        
+
+                        let datetime = NaiveDateTime::new(NaiveDate::from_ymd(year, month, day), NaiveTime::from_hms(hour, min, sec));
 
                         let local_tz_datetime = match datetime.and_local_timezone(Utc){
                             chrono::LocalResult::None => panic!("{datetime} cannot be converted in local timezone"),
