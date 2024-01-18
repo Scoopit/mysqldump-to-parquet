@@ -87,6 +87,7 @@ fn main() -> Result<()> {
             }
             writer_sender.send(line).unwrap();
         }
+        parse_progress_bar.set_message("Done parsing sql");
         parse_progress_bar.finish();
     });
 
@@ -126,11 +127,10 @@ fn main() -> Result<()> {
     }
     // nothing to send anymore, drop the sender so the parser thread will end.
     drop(line_parser_sender);
+    read_progress_bar.set_message("Done reading file!");
     read_progress_bar.finish();
     line_parser_handle.join().unwrap();
     write_thread_join_handle.join().unwrap();
-
-    progress.clear();
 
     Ok(())
 }

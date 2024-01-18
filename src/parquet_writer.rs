@@ -46,6 +46,7 @@ impl Drop for ParquetWriter {
         if let Some(current_writer) = current_writer {
             current_writer.finish();
         }
+        self.progress_bar.set_message("Done writing parquet file(s).");
         self.progress_bar.finish();
     }
 }
