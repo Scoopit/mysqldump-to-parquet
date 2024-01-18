@@ -10,17 +10,15 @@ This tool is not yet published to crates.io.
 cargo install --git https://github.com/Scoopit/mysqldump-to-parquet.git
 ````
 
-## Features
+## Features / Limitations
 
-WIP
+- read schema from `CREATE TABLE` statement
+- panic when trying to parse procedure, do not include them in the dump
 
 ## Usage
 
-WIP
-
-## Known Issues
-
-WIP
+Input stream (file or stdin) must contain `CREATE TABLE` statement before
+any insertion of data into the table.
 
 ## License
 
