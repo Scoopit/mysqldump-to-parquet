@@ -1,5 +1,3 @@
-use std::collections::HashMap;
-
 use arrow::datatypes::{DataType, Field, SchemaBuilder, TimeUnit};
 use color_eyre::eyre::{bail, Context, OptionExt, Result};
 use sqlparser::{
@@ -76,34 +74,34 @@ pub fn parse_line(line: &str) -> Result<Line> {
             let stmt = &ast[0];
             match stmt {
                 sqlparser::ast::Statement::CreateTable {
-                    or_replace,
-                    temporary,
-                    external,
-                    global,
-                    if_not_exists,
-                    transient,
+                    or_replace: _,
+                    temporary: _,
+                    external: _,
+                    global: _,
+                    if_not_exists: _,
+                    transient: _,
                     name,
                     columns,
-                    constraints,
-                    hive_distribution,
-                    hive_formats,
-                    table_properties,
-                    with_options,
-                    file_format,
-                    location,
-                    query,
-                    without_rowid,
-                    like,
-                    clone,
-                    engine,
-                    comment,
-                    auto_increment_offset,
-                    default_charset,
-                    collation,
-                    on_commit,
-                    on_cluster,
-                    order_by,
-                    strict,
+                    constraints: _,
+                    hive_distribution: _,
+                    hive_formats: _,
+                    table_properties: _,
+                    with_options: _,
+                    file_format: _,
+                    location: _,
+                    query: _,
+                    without_rowid: _,
+                    like: _,
+                    clone: _,
+                    engine: _,
+                    comment: _,
+                    auto_increment_offset: _,
+                    default_charset: _,
+                    collation: _,
+                    on_commit: _,
+                    on_cluster: _,
+                    order_by: _,
+                    strict: _,
                 } => {
                     let table_name = name.0[0].value.clone();
                     let mut schema = Vec::new();
@@ -160,22 +158,22 @@ pub fn parse_line(line: &str) -> Result<Line> {
                     Ok(Line::CreateTable(table_name, Schema(schema)))
                 }
                 sqlparser::ast::Statement::Insert {
-                    or,
-                    ignore,
-                    into,
+                    or: _,
+                    ignore: _,
+                    into: _,
                     table_name,
-                    columns,
-                    overwrite,
+                    columns: _,
+                    overwrite: _,
                     source,
-                    partitioned,
-                    after_columns,
-                    table,
-                    on,
-                    returning,
+                    partitioned: _,
+                    after_columns: _,
+                    table: _,
+                    on: _,
+                    returning: _,
                 } => {
                     let table_name = table_name
                         .0
-                        .get(0)
+                        .first()
                         .ok_or_eyre("Unable to get table name from INSERT INTO statement!")?
                         .value
                         .clone();
@@ -190,7 +188,7 @@ pub fn parse_line(line: &str) -> Result<Line> {
                                 if let Expr::Value(value) = value {
                                     let value = match value {
                                         sqlparser::ast::Value::Number(num, _) => {
-                                            if num.contains(".") {
+                                            if num.contains('.') {
                                                 ColumnValue::Float(num.parse()?)
                                             } else {
                                                 ColumnValue::Integer(num.parse()?)

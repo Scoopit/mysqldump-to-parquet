@@ -1,5 +1,3 @@
-#![allow(unused)]
-
 use std::{
     borrow::Cow,
     fs::{create_dir_all, File},
@@ -91,11 +89,9 @@ fn main() -> Result<()> {
         parse_progress_bar.finish();
     });
 
-    let mut line_number = 0;
     let mut current_statement = String::with_capacity(8192);
     let mut line = String::with_capacity(8192);
     loop {
-        line_number += 1;
         line.clear();
         if reader
             .read_line(&mut line)
@@ -108,19 +104,17 @@ fn main() -> Result<()> {
         let line = line.trim();
         if line.starts_with("--")
             || line.starts_with("/*") && line.ends_with("*/;")
-            || line.len() == 0
+            || line.is_empty()
         {
             // ignore comments
             continue;
+        } else if current_statement.starts_with("CREATE TABLE") {
+            current_statement.extend(cleanup_key(line).chars())
         } else {
-            if current_statement.starts_with("CREATE TABLE") {
-                current_statement.extend(cleanup_key(line).chars())
-            } else {
-                current_statement.extend(line.chars())
-            }
+            current_statement.push_str(line)
         }
 
-        if current_statement.ends_with(";") {
+        if current_statement.ends_with(';') {
             line_parser_sender.send(current_statement.trim().to_string())?;
             current_statement.clear();
         }
