@@ -165,7 +165,13 @@ impl CurrentParquetWriter {
                                 let datetime = NaiveDateTime::parse_from_str(&value, "%Y-%m-%d %H:%M:%S")
                             .expect("Unable to parse date");
 
-                        let local_tz_datetime = datetime.and_local_timezone(Local).unwrap();
+                        let local_tz_datetime = match datetime.and_local_timezone(Local){
+                            chrono::LocalResult::None => panic!("{datetime} cannot be converted in local timezone"),
+                            chrono::LocalResult::Single(dt) => dt,
+                            // ignore ambigous (not sure how this is handled by mysql)
+                            chrono::LocalResult::Ambiguous(dt, _) => dt,
+                        };
+                        
                         builder.append_value(local_tz_datetime.timestamp());
                             },
                             ColumnValue::Null => builder.append_null(),
