@@ -1,7 +1,7 @@
 use std::{
     fs::File,
     thread::{self, JoinHandle},
-    time::Instant,
+    time::Instant, path::PathBuf,
 };
 
 use arrow::{
@@ -26,6 +26,7 @@ use parquet::{
 use crate::line_parser::{ColumnValue, Line, Schema};
 
 pub struct ParquetWriter {
+    output_dir: PathBuf,
     current_writer: Option<CurrentParquetWriter>,
     progress_bar: ProgressBar,
 }
@@ -50,11 +51,12 @@ impl Drop for ParquetWriter {
 }
 
 impl ParquetWriter {
-    pub fn start(progress_bar: ProgressBar) -> (crossbeam::channel::Sender<Line>, JoinHandle<()>) {
+    pub fn start(output_dir: PathBuf,progress_bar: ProgressBar) -> (crossbeam::channel::Sender<Line>, JoinHandle<()>) {
         let (sender, receiver) = crossbeam::channel::bounded(100);
 
         let writer_thread_join_handle = thread::spawn(move || {
             let mut w = ParquetWriter{
+                output_dir,
                 progress_bar,
                 current_writer: None,
             };
@@ -76,7 +78,8 @@ impl ParquetWriter {
                     .set_compression(Compression::SNAPPY)
                     .build();
                 let file_name = format!("{table_name}.parquet");
-                let file = File::create(file_name).unwrap();
+                let file_path = self.output_dir.join(file_name);
+                let file = File::create(file_path).unwrap();
                 let arrow_writer =
                     ArrowWriter::try_new(file, arrow_schema.clone(), Some(props)).unwrap();
                 let previous_writer = self.current_writer.replace(CurrentParquetWriter {

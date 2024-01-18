@@ -54,9 +54,8 @@ fn main() -> Result<()> {
     let output_dir = PathBuf::from(&args.output);
     create_dir_all(&output_dir)
         .with_context(|| format!("Cannot create output directory {}", args.output))?;
-    let mut line_number = 0;
-    let mut current_statement = String::with_capacity(8192);
-    let mut line = String::with_capacity(8192);
+
+    // progress bar handling
 
     let progress = MultiProgress::new();
     let read_progress_bar = ProgressBar::new_spinner().with_style(
@@ -72,7 +71,8 @@ fn main() -> Result<()> {
     progress.add(parse_progress_bar.clone());
     progress.add(write_progress_bar.clone());
 
-    let (writer_sender, write_thread_join_handle) = ParquetWriter::start(write_progress_bar);
+    let (writer_sender, write_thread_join_handle) =
+        ParquetWriter::start(output_dir, write_progress_bar);
     let (line_parser_sender, line_parser_receiver) = crossbeam::channel::bounded::<String>(1000);
 
     let line_parser_handle = std::thread::spawn(move || {
@@ -89,6 +89,10 @@ fn main() -> Result<()> {
         }
         parse_progress_bar.finish();
     });
+
+    let mut line_number = 0;
+    let mut current_statement = String::with_capacity(8192);
+    let mut line = String::with_capacity(8192);
     loop {
         line_number += 1;
         line.clear();
