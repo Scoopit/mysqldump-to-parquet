@@ -145,7 +145,7 @@ impl CurrentParquetWriter {
                         match column_value{
                             ColumnValue::Integer(value) => builder.append_value(value),
                             ColumnValue::Null => builder.append_null(),
-                            _ => panic!("Value for column {column_name} should be a string but is {column_value:?}"),
+                            _ => panic!("Value for column {column_name} should be an integer but is {column_value:?}"),
                         };
                     }
                     crate::line_parser::ColumnType::Float => {
@@ -155,8 +155,9 @@ impl CurrentParquetWriter {
                             .unwrap();
                         match column_value{
                             ColumnValue::Float(value) => builder.append_value(value),
+                            ColumnValue::Integer(value) => builder.append_value(value as f64),
                             ColumnValue::Null => builder.append_null(),
-                            _ => panic!("Value for column {column_name} should be a string but is {column_value:?}"),
+                            _ => panic!("Value for column {column_name} should be a float but is {column_value:?}"),
                         };
                     }
                     crate::line_parser::ColumnType::Timestamp => {

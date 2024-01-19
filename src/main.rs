@@ -99,7 +99,9 @@ fn main() -> Result<()> {
                 }
                 _ => parse_progress_bar.tick(),
             }
-            writer_sender.send(line).unwrap();
+            writer_sender
+                .send(line)
+                .expect("Cannot send parsed rows to parquet writer");
         }
         parse_progress_bar.set_message("Done parsing sql");
         parse_progress_bar.finish();
@@ -131,7 +133,9 @@ fn main() -> Result<()> {
         }
 
         if current_statement.ends_with(';') {
-            line_parser_sender.send(current_statement.trim().to_string())?;
+            line_parser_sender
+                .send(current_statement.trim().to_string())
+                .context("Cannot send SQL statement to parser!")?;
             current_statement.clear();
         }
     }
@@ -139,8 +143,10 @@ fn main() -> Result<()> {
     drop(line_parser_sender);
     read_progress_bar.set_message("done!");
     read_progress_bar.finish();
-    line_parser_handle.join().unwrap();
-    write_thread_join_handle.join().unwrap();
+    line_parser_handle.join().expect("Parser thread crashed!");
+    write_thread_join_handle
+        .join()
+        .expect("Parquet writer thread crashed!");
 
     Ok(())
 }
