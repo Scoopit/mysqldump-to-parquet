@@ -16,15 +16,27 @@ pub enum Line {
 }
 
 #[derive(Clone, Debug, PartialEq, Eq)]
-pub struct Schema(pub Vec<(String, ColumnType)>);
+pub struct Schema(pub Vec<ColumnDef>);
+
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub struct ColumnDef {
+    pub column_name: String,
+    pub nullable: bool,
+    pub column_type: ColumnType,
+}
 
 impl Schema {
     pub fn to_arrow_schema(&self) -> arrow::datatypes::Schema {
         let mut builder = SchemaBuilder::new();
-        for (column_name, column_type) in &self.0 {
+        for ColumnDef {
+            column_name,
+            nullable,
+            column_type,
+        } in &self.0
+        {
             // TODO propagate the "NOT NULL" here!
             builder.push(Field::new(
-                column_name.to_lowercase().clone(),
+                column_name.to_lowercase(),
                 match column_type {
                     ColumnType::String => DataType::Utf8,
                     ColumnType::Integer => DataType::Int64,
@@ -32,7 +44,7 @@ impl Schema {
                     ColumnType::Timestamp => DataType::Timestamp(TimeUnit::Second, None),
                     ColumnType::Boolean => todo!(),
                 },
-                true,
+                *nullable,
             ));
         }
         builder.finish()
@@ -106,7 +118,7 @@ pub fn parse_line(line: &str) -> Result<Line> {
                     let table_name = name.0[0].value.clone();
                     let mut schema = Vec::new();
                     for column in columns {
-                        let column_name = column.name.value.clone();
+                        let name = column.name.value.clone();
                         let column_type = match &column.data_type {
                             sqlparser::ast::DataType::Varchar(_) => ColumnType::String,
                             sqlparser::ast::DataType::Numeric(_) => ColumnType::Integer,
@@ -160,7 +172,28 @@ pub fn parse_line(line: &str) -> Result<Line> {
                             }
                             _ => bail!("Unsupported data type {:?}", column.data_type),
                         };
-                        schema.push((column_name, column_type));
+                        println!("{name} {:?}", column.options);
+                        schema.push(ColumnDef {
+                            column_name: name,
+                            nullable: column
+                                .options
+                                .iter()
+                                .map(|column_option| match column_option.option {
+                                    sqlparser::ast::ColumnOption::Null => Some(true),
+                                    sqlparser::ast::ColumnOption::NotNull => Some(false),
+                                    sqlparser::ast::ColumnOption::Unique { is_primary }
+                                        if is_primary == true =>
+                                    {
+                                        Some(false)
+                                    }
+                                    _ => None,
+                                })
+                                .filter(Option::is_some)
+                                .next()
+                                .flatten()
+                                .unwrap_or(true),
+                            column_type,
+                        });
                     }
 
                     Ok(Line::CreateTable(table_name, Schema(schema)))
@@ -248,7 +281,8 @@ pub fn parse_line(line: &str) -> Result<Line> {
 
 #[cfg(test)]
 mod test {
-    use crate::line_parser::{ColumnType, ColumnValue};
+
+    use crate::line_parser::{ColumnDef, ColumnType, ColumnValue};
 
     use super::{parse_line, Line};
     #[test]
@@ -321,13 +355,41 @@ mod test {
             assert_eq!(
                 schema.0,
                 vec![
-                    ("id".to_string(), ColumnType::Integer),
-                    ("shortName".to_string(), ColumnType::String),
-                    ("avatarUuid".to_string(), ColumnType::String),
-                    ("registrationDate".to_string(), ColumnType::Timestamp),
-                    ("premiumExpirationDate".to_string(), ColumnType::Timestamp),
-                    ("excluded".to_string(), ColumnType::Integer),
-                    ("company_lid".to_string(), ColumnType::Integer),
+                    ColumnDef {
+                        column_name: "id".into(),
+                        nullable: false,
+                        column_type: ColumnType::Integer,
+                    },
+                    ColumnDef {
+                        column_name: "shortName".into(),
+                        nullable: false,
+                        column_type: ColumnType::String,
+                    },
+                    ColumnDef {
+                        column_name: "avatarUuid".into(),
+                        nullable: true,
+                        column_type: ColumnType::String,
+                    },
+                    ColumnDef {
+                        column_name: "registrationDate".into(),
+                        nullable: false,
+                        column_type: ColumnType::Timestamp,
+                    },
+                    ColumnDef {
+                        column_name: "premiumExpirationDate".into(),
+                        nullable: true,
+                        column_type: ColumnType::Timestamp,
+                    },
+                    ColumnDef {
+                        column_name: "excluded".into(),
+                        nullable: false,
+                        column_type: ColumnType::Integer,
+                    },
+                    ColumnDef {
+                        column_name: "company_lid".into(),
+                        nullable: true,
+                        column_type: ColumnType::Integer,
+                    },
                 ]
             )
         } else {

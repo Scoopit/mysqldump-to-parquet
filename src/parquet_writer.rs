@@ -16,7 +16,7 @@ use chrono::{NaiveDate, NaiveDateTime, NaiveTime, Utc};
 use indicatif::ProgressBar;
 use parquet::{arrow::ArrowWriter, basic::Compression, file::properties::WriterProperties};
 
-use crate::line_parser::{ColumnValue, Line, Schema};
+use crate::line_parser::{ColumnDef, ColumnValue, Line, Schema};
 
 pub struct ParquetWriter {
     output_dir: PathBuf,
@@ -122,7 +122,11 @@ impl CurrentParquetWriter {
 
         for row in rows {
             for (i, column_value) in row.into_iter().enumerate() {
-                let (column_name, column_type) = &self.schema.0[i];
+                let ColumnDef {
+                    column_name,
+                    nullable: _,
+                    column_type,
+                } = &self.schema.0[i];
                 let array_builder = &mut array_builders[i];
 
                 match column_type {
