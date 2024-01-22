@@ -133,9 +133,13 @@ fn main() -> Result<()> {
         }
 
         if current_statement.ends_with(';') {
-            line_parser_sender
-                .send(current_statement.trim().to_string())
-                .context("Cannot send SQL statement to parser!")?;
+            if current_statement.starts_with("CREATE TABLE")
+                || current_statement.starts_with("INSERT INTO")
+            {
+                line_parser_sender
+                    .send(current_statement.trim().to_string())
+                    .context("Cannot send SQL statement to parser!")?;
+            }
             current_statement.clear();
         }
     }

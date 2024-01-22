@@ -172,7 +172,6 @@ pub fn parse_line(line: &str) -> Result<Line> {
                             }
                             _ => bail!("Unsupported data type {:?}", column.data_type),
                         };
-                        println!("{name} {:?}", column.options);
                         schema.push(ColumnDef {
                             column_name: name,
                             nullable: column

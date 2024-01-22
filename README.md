@@ -13,7 +13,7 @@ cargo install --git https://github.com/Scoopit/mysqldump-to-parquet.git
 ## Features / Limitations
 
 - read schema from `CREATE TABLE` statement
-- panic when trying to parse procedure, do not include them in the dump
+- handle null/not null column
 
 ## Usage
 
