@@ -1,10 +1,8 @@
 # mysqldump-to-parquet
 
-Convert mysqldump or portion of it to parquet files, one file per table
+Convert mysqldump or portion of it into parquet files, one file per table
 
 ## Installation
-
-This tool is not yet published to crates.io.
 
 ````bash
 cargo install --git https://github.com/Scoopit/mysqldump-to-parquet.git
@@ -12,13 +10,11 @@ cargo install --git https://github.com/Scoopit/mysqldump-to-parquet.git
 
 ## Features / Limitations
 
-- read schema from `CREATE TABLE` statement
-- handle null/not null column
+Schema is created from `CREATE TABLE` statement. It handle nullable/not nullable values.
 
-## Usage
+For a given table, `CREATE TABLE` statement must appear before `INSERT INTO` statements.
 
-Input stream (file or stdin) must contain `CREATE TABLE` statement before
-any insertion of data into the table.
+Data from multiple tables cannot be interleaved.
 
 ## License
 
