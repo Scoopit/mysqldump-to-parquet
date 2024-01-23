@@ -1,6 +1,6 @@
 # mysqldump-to-parquet
 
-Convert mysqldump or portion of it into parquet files, one file per table
+Convert a mysql dump - or portion of it - into parquet files, one file per table.
 
 ## Installation
 
@@ -10,7 +10,7 @@ cargo install --git https://github.com/Scoopit/mysqldump-to-parquet.git
 
 ## Features / Limitations
 
-Schema is created from `CREATE TABLE` statement. It handle nullable/not nullable values.
+Schema is created from `CREATE TABLE` statement. It handles nullable/not nullable values depending on `NOT NULL` or `PRIMARY KEY` column options.
 
 For a given table, `CREATE TABLE` statement must appear before `INSERT INTO` statements.
 
